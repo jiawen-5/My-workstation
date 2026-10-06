@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #3d4a5c;
+  --color-paper: #faf9f7;
+  --color-blush: #d4a5a5;
+  --color-sage: #a8c5b8;
+  --color-sand: #e8d4b8;
+  --color-khaki: #b9b08a;
+  --font-sans: "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  --font-serif: "Noto Serif SC", serif;
+}
+
+html, body, #app { height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background: #faf9f7;
+  color: #3d4a5c;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(61,74,92,.15); border-radius: 999px; }
+
+@keyframes softPulse { 0%,100% { opacity:.5; transform:scale(1);} 50% { opacity:.9; transform:scale(1.25);} }
+.pulse-dot { animation: softPulse 3s ease-in-out infinite; }
+
+.submenu { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .3s ease-in-out, opacity .3s ease-in-out; }
+.submenu.open { max-height: 320px; opacity: 1; }
+.chevron { transition: transform .3s ease-in-out; }
+.chevron.rotated { transform: rotate(90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
