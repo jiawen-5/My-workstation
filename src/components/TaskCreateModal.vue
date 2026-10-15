@@ -1,6 +1,6 @@
 <script setup>
-import { reactive } from "vue";
-import { PRI_COLOR } from "../constants/nav.js";
+import { computed, reactive } from "vue";
+import { PRESET_TAGS, PRI_COLOR } from "../constants/nav.js";
 
 const props = defineProps({ dark: Boolean, open: Boolean });
 const emit = defineEmits(["close", "confirm"]);
@@ -20,6 +20,12 @@ function addTag() {
   if (v && !form.tags.includes(v)) form.tags.push(v);
   form.tagInput = "";
 }
+function toggleTag(t) {
+  form.tags = form.tags.includes(t) ? form.tags.filter((x) => x !== t) : [...form.tags, t];
+}
+// 常用标签已经在下方的胶囊里高亮，这里只列自己手输的，避免重复
+const customTags = computed(() => form.tags.filter((t) => !PRESET_TAGS.includes(t)));
+
 function confirm() {
   if (!form.title.trim()) return;
   emit("confirm", { title: form.title, priority: form.priority, deadline: form.deadline, tags: [...form.tags], mode: form.mode });
@@ -48,8 +54,20 @@ defineExpose({ reset });
           :class="dark ? 'bg-white/5 border-white/10' : 'border-[#3d4a5c]/15'" />
         <button @click="addTag" class="text-xs rounded-2xl border px-3 transition-all duration-300 active:scale-[0.98]" :class="dark ? 'border-white/15' : 'border-[#3d4a5c]/15'">添加</button>
       </div>
+      <div v-if="customTags.length" class="flex flex-wrap gap-2 mb-2">
+        <span v-for="tag in customTags" :key="tag" class="text-[10px] rounded-xl border px-2 py-1" :class="dark ? 'border-white/15' : 'border-[#3d4a5c]/15'"># {{ tag }} <button @click="toggleTag(tag)" class="opacity-60">✕</button></span>
+      </div>
+      <p class="text-[10px] opacity-55 mb-2">常用标签（点一下即可选中）</p>
       <div class="flex flex-wrap gap-2 mb-4">
-        <span v-for="tag in form.tags" :key="tag" class="text-[10px] rounded-xl border px-2 py-1"># {{ tag }} <button @click="form.tags = form.tags.filter((x) => x !== tag)" class="opacity-60">✕</button></span>
+        <button
+          v-for="t in PRESET_TAGS" :key="t" @click="toggleTag(t)"
+          class="text-[10px] rounded-xl border px-2.5 py-1 transition-all duration-300 active:scale-[0.98]"
+          :class="form.tags.includes(t)
+            ? (dark ? 'bg-[#a8c5b8]/20 border-[#a8c5b8]/40' : 'bg-[#a8c5b8]/25 border-[#a8c5b8]/45')
+            : (dark ? 'border-white/12 opacity-60 hover:opacity-90' : 'border-[#3d4a5c]/15 opacity-60 hover:opacity-90')"
+        >
+          {{ form.tags.includes(t) ? "✓ " : "" }}{{ t }}
+        </button>
       </div>
       <div class="flex gap-2 mb-5">
         <button @click="form.mode = 'sub'" class="flex-1 rounded-2xl border text-xs py-2.5 transition-all duration-300 active:scale-[0.98]"

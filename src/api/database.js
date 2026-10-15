@@ -13,15 +13,14 @@ function isTauri() {
 }
 
 /*
- * 数据库位置：
- * - 生产（打包后）：sqlite:workbench.db → %APPDATA%\<identifier>\workbench.db，
- *   跟随系统用户走，重装/升级 App 数据还在，也不会污染项目目录。
- * - 开发（npm run tauri dev）：放到项目根目录 dev-workbench.db，
- *   方便直接用 DB Browser 打开看，也方便删库重来。
- *   改成本机路径即可，不影响生产。
+ * 数据库位置：sqlite:workbench.db
+ * tauri-plugin-sql 会把相对路径解析到 App 配置目录：
+ *   %APPDATA%\<identifier>\workbench.db
+ * 跟随系统用户走，重装/升级 App 数据都还在，也不会污染项目目录。
+ * 开发（npm run tauri dev）与打包后共用这一个库：
+ * 开发时看到的就是打包后的样子，不会出现「开发有、正式版没有」。
  */
-const DEV_DB_URL = "sqlite:D:/my-workstation/my_workstation/dev-workbench.db";
-const PROD_DB_URL = "sqlite:workbench.db";
+const DB_URL = "sqlite:workbench.db";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS tasks (
@@ -57,6 +56,22 @@ CREATE TABLE IF NOT EXISTS timeline_entries (
   task_id   INTEGER NULL REFERENCES tasks(id) ON DELETE CASCADE,
   sub_id    INTEGER NULL,
   biz_date  TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS growth_logs (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  event     TEXT NOT NULL,
+  category  TEXT NOT NULL DEFAULT '',
+  mood      TEXT NOT NULL DEFAULT '',
+  content   TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS journal_categories (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS journal_moods (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL UNIQUE
 );`;
 
 let db = null;
@@ -64,10 +79,8 @@ async function getDb() {
   if (!isTauri()) return null;
   if (!db) {
     const { default: Database } = await import("@tauri-apps/plugin-sql");
-    // dev 用项目本地文件，生产用 App 数据目录
-    const url = import.meta.env.DEV ? DEV_DB_URL : PROD_DB_URL;
-    db = await Database.load(url);
-    // 建表幂等：换了 URL（比如 dev 文件）也不依赖 Rust 端 migration
+    db = await Database.load(DB_URL);
+    // 建表幂等：即使 Rust 端 migration 没跑，这里也能把表补齐
     for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
       await db.execute(stmt);
     }
@@ -112,6 +125,15 @@ const rowToEntry = (r) => ({
   taskId: r.task_id ?? null,
   subId: r.sub_id ?? null,
   bizDate: r.biz_date || "",
+});
+
+const rowToLog = (r) => ({
+  id: r.id,
+  event: r.event,
+  category: r.category || "",
+  mood: r.mood || "",
+  content: r.content || "",
+  createdAt: r.created_at || "",
 });
 
 export function todayKey(d = new Date()) {
@@ -201,8 +223,49 @@ export const sqlite = {
     await database.execute("DELETE FROM timeline_entries WHERE id=$1", [id]);
   },
 
+  async loadJournal() {
+    const database = await getDb();
+    if (!database) return null;
+    const logs = await database.select("SELECT * FROM growth_logs ORDER BY created_at DESC, id DESC");
+    const cats = await database.select("SELECT name FROM journal_categories ORDER BY id ASC");
+    const moods = await database.select("SELECT name FROM journal_moods ORDER BY id ASC");
+    return { logs, cats: cats.map((r) => r.name), moods: moods.map((r) => r.name) };
+  },
+  async insertLog(l) {
+    const database = await getDb();
+    if (!database) return null;
+    const r = await database.execute(
+      "INSERT INTO growth_logs (event, category, mood, content, created_at) VALUES ($1,$2,$3,$4,$5)",
+      [l.event, l.category || "", l.mood || "", l.content || "", l.createdAt],
+    );
+    return r.lastInsertId;
+  },
+  async updateLog(l) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE growth_logs SET event=$1, category=$2, mood=$3, content=$4 WHERE id=$5", [
+      l.event, l.category || "", l.mood || "", l.content || "", l.id,
+    ]);
+  },
+  async deleteLog(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM growth_logs WHERE id=$1", [id]);
+  },
+  async addCategory(name) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("INSERT OR IGNORE INTO journal_categories (name) VALUES ($1)", [name]);
+  },
+  async addMood(name) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("INSERT OR IGNORE INTO journal_moods (name) VALUES ($1)", [name]);
+  },
+
   rowToSub,
   rowToEntry,
+  rowToLog,
   readLS,
   writeLS,
 };

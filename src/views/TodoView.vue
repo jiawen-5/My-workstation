@@ -43,12 +43,15 @@ function onSwitchMode(t) {
       v-for="t in modeSub" :key="t.id" :dark="dark" :task="t"
       @start="wb.startTask" @toggle-sub="wb.toggleSub" @add-sub="wb.addSub"
       @del-sub="wb.delSub" @del-task="wb.delTask"
-      @switch-mode="onSwitchMode" @toggle-edit="wb.tasks.value && (t.editing = !t.editing)"
+      @switch-mode="onSwitchMode" @toggle-edit="wb.toggleEdit"
     />
 
     <div class="flex items-center gap-2 mb-4 mt-8">
       <span class="text-xs opacity-60">模式二 · 无需拆分</span>
       <div class="flex-1 h-px" :class="dark ? 'bg-white/10' : 'bg-[#3d4a5c]/12'"></div>
+    </div>
+    <div v-if="!modeSimple.length" class="text-xs opacity-50 mb-4 rounded-2xl border border-dashed p-6 text-center" :class="dark ? 'border-white/15' : 'border-[#3d4a5c]/20'">
+      暂无简单任务，点击右上新建任务
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pb-10">
       <SimpleTaskCard

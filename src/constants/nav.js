@@ -5,6 +5,7 @@ export const ICONS = {
   生活: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" stroke-linecap="round" stroke-linejoin="round"/>',
   创意: '<path d="M9.66 17.67A3 3 0 0 1 12 15a3 3 0 0 1 2.34 2.67 3 3 0 0 0 3.16 2.33 3 3 0 0 0 3-3V12a10 10 0 0 0-5-8.66A10 10 0 0 0 4 5a10 10 0 0 0-4 7v.5" stroke-linecap="round" stroke-linejoin="round"/>',
   日记: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 8h-4M14 12h-4" stroke-linecap="round"/>',
+  成长: '<path d="M12 20V10M18 20V4M6 20v-4" stroke-linecap="round" stroke-linejoin="round"/>',
   理财: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
@@ -16,8 +17,12 @@ export const NAV_GROUPS = [
   { name: "生活", children: ["三餐饮食", "运动打卡", "身体数据"] },
   { name: "创意", children: ["灵感笔记", "手绘画布", "手工档案"] },
   { name: "日记", children: [] },
+  { name: "成长", children: ["成长日志"] },
   { name: "理财", children: [], future: true },
 ];
 
 export const PRI_COLOR = { 高: "#d4a5a5", 中: "#a8c5b8", 低: "#e8d4b8" };
 export const PALETTE = ["#d4a5a5", "#a8c5b8", "#e8d4b8", "#b9b08a"];
+
+/* 新建任务时可直接点选的常用标签（后面按标签筛选/统计用时都用它） */
+export const PRESET_TAGS = ["个人学习", "算法", "八股", "模拟面试", "面试", "秋招", "读书", "生活", "日常"];

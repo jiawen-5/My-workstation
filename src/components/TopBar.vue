@@ -4,7 +4,7 @@ defineProps({
   wakeTime: String,
   restTime: String,
 });
-const emit = defineEmits(["toggle-dark", "rest"]);
+const emit = defineEmits(["toggle-dark", "wake", "rest"]);
 const search = defineModel("search");
 </script>
 
@@ -39,6 +39,7 @@ const search = defineModel("search");
 
     <div class="flex items-center gap-2 md:gap-3">
       <button
+        @click="emit('wake')"
         class="flex items-center gap-1.5 rounded-2xl shadow-sm border px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm transition-all duration-300 active:scale-[0.98]"
         :class="dark ? 'bg-[#a8c5b8]/15 border-[#a8c5b8]/25 hover:bg-[#a8c5b8]/25' : 'bg-[#a8c5b8]/20 border-[#a8c5b8]/30 hover:bg-[#a8c5b8]/30'"
       >

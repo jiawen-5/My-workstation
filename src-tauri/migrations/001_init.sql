@@ -36,3 +36,21 @@ CREATE TABLE IF NOT EXISTS timeline_entries (
   biz_date  TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_timeline_date ON timeline_entries(biz_date);
+
+CREATE TABLE IF NOT EXISTS growth_logs (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  event     TEXT NOT NULL,
+  category  TEXT NOT NULL DEFAULT '',
+  mood      TEXT NOT NULL DEFAULT '',
+  content   TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_growth_created ON growth_logs(created_at);
+CREATE TABLE IF NOT EXISTS journal_categories (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS journal_moods (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL UNIQUE
+);

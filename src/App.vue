@@ -1,36 +1,45 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import TopBar from "./components/TopBar.vue";
 import SideNav from "./components/SideNav.vue";
 import TimelinePanel from "./components/TimelinePanel.vue";
 import TaskCreateModal from "./components/TaskCreateModal.vue";
 import TimelineModal from "./components/TimelineModal.vue";
 import TodoView from "./views/TodoView.vue";
+import GrowthView from "./views/GrowthView.vue";
+import GrowthLogModal from "./components/GrowthLogModal.vue";
 import PlaceholderView from "./views/PlaceholderView.vue";
 import { useWorkbench } from "./stores/workbench.js";
-import { nowHM, useDateLine } from "./composables/useDay.js";
+import { useJournal } from "./stores/journal.js";
+import { useDateLine } from "./composables/useDay.js";
+import { prefs, restNow, wakeNow } from "./composables/usePrefs.js";
 
 const search = ref("");
-const collapsed = ref(false);
+// 深浅色、时间轴折叠、起床/休息时间都跟着 prefs 走，重开 App 保持上次的样子
+const dark = computed({ get: () => prefs.dark, set: (v) => (prefs.dark = v) });
+const collapsed = computed({ get: () => prefs.collapsed, set: (v) => (prefs.collapsed = v) });
+const wakeTime = computed(() => prefs.day.wake);
+const restTime = computed(() => prefs.day.rest);
 const activeItem = ref("日常待办");
 const openGroups = ref(["待办"]);
-const wakeTime = ref("07:30");
-const restTime = ref("");
-const dark = ref(false);
 
 const showCreate = ref(false);
 const showTlForm = ref(false);
 const editingTl = ref(null);
 
 const wb = useWorkbench();
+const jb = useJournal();
 const dateLine = useDateLine();
 
-onMounted(() => wb.load());
+const showGrowth = ref(false);
+const editingGrowth = ref(null);
+
+onMounted(() => { wb.load(); jb.load(); });
 </script>
 
 <template>
   <div class="h-screen flex flex-col overflow-hidden" :class="dark ? 'bg-[#2e3440] text-[#ece8e1]' : 'bg-[#faf9f7] text-[#3d4a5c]'">
-    <TopBar v-model:search="search" :dark="dark" :wake-time="wakeTime" :rest-time="restTime" @toggle-dark="dark = !dark" @rest="restTime = nowHM()" />
+    <TopBar v-model:search="search" :dark="dark" :wake-time="wakeTime" :rest-time="restTime" @toggle-dark="dark = !dark" @wake="wakeNow" @rest="restNow" />
 
     <div class="flex flex-1 min-h-0">
       <SideNav :dark="dark" v-model:active-item="activeItem" v-model:open-groups="openGroups" />
@@ -40,6 +49,12 @@ onMounted(() => wb.load());
           v-if="activeItem === '日常待办'"
           :dark="dark" :title="activeItem" :date-line="dateLine"
           @open-create="showCreate = true"
+        />
+        <GrowthView
+          v-else-if="activeItem === '成长日志'"
+          :dark="dark" :title="activeItem" :date-line="dateLine"
+          @open-create="editingGrowth = null; showGrowth = true"
+          @open-edit="(l) => { editingGrowth = l; showGrowth = true; }"
         />
         <PlaceholderView
           v-else-if="activeItem === '长期计划'"
@@ -68,6 +83,14 @@ onMounted(() => wb.load());
     </button>
 
     <TaskCreateModal :dark="dark" :open="showCreate" @close="showCreate = false" @confirm="wb.createTask" />
+    <GrowthLogModal
+      :dark="dark" :open="showGrowth" :editing="editingGrowth"
+      :categories="jb.categories.value" :moods="jb.moods.value"
+      @close="showGrowth = false"
+      @save="(d) => jb.save(d, editingGrowth)"
+      @delete="editingGrowth && jb.remove(editingGrowth)"
+      @add-category="jb.addCategory" @add-mood="jb.addMood"
+    />
     <TimelineModal
       :dark="dark" :open="showTlForm" :editing="editingTl"
       @close="showTlForm = false"

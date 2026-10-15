@@ -5,44 +5,17 @@ import { sqlite, todayKey } from "../api/database.js";
 
 /*
  * 唯一数据源：内存 ref + SQLite/localStorage 持久化。
- * - App 启动时调用 `load()` 一次；Tauri 内读 SQLite，当天没数据则写入种子；
- *   浏览器 dev 读 localStorage，没有则用种子。
+ * - 默认空数据：不含任何演示/种子内容，界面上的任务完全由用户自己录入。
+ * - App 启动时调用 `load()` 一次；Tauri 内读 SQLite，浏览器 dev 读 localStorage，
+ *   恢复成上次关闭时的样子。
  * - 之后所有变更先改内存（UI 立刻响应），再异步落盘，失败不阻塞交互。
  */
 
 let nid = 1000;
 const nextLocalId = () => ++nid;
 
-function seedTasks() {
-  return [
-    { id: nextLocalId(), title: "复习计算机网络第三章", priority: "高", deadline: "今天 18:00", tags: ["秋招"], color: "#d4a5a5", mode: "sub", status: "doing", startAt: "08:00", endAt: "", newSub: "", editing: false,
-      subs: [
-        { id: nextLocalId(), text: "TCP 三次握手与四次挥手", done: false, startAt: "08:00", endAt: "" },
-        { id: nextLocalId(), text: "HTTP / HTTPS 原理", done: true, startAt: "08:20", endAt: "08:55" },
-        { id: nextLocalId(), text: "TCP 拥塞控制算法", done: false, startAt: "", endAt: "" },
-      ] },
-    { id: nextLocalId(), title: "LeetCode 每日刷题", priority: "中", deadline: "今天 22:00", tags: ["算法"], color: "#a8c5b8", mode: "sub", status: "doing", startAt: "10:00", endAt: "", newSub: "", editing: false,
-      subs: [
-        { id: nextLocalId(), text: "两数之和（简单）", done: true, startAt: "10:00", endAt: "10:15", note: "一遍过" },
-        { id: nextLocalId(), text: "最长无重复子串（中等）", done: false, startAt: "", endAt: "", note: "需二刷" },
-        { id: nextLocalId(), text: "合并 K 个升序链表（困难）", done: false, startAt: "", endAt: "" },
-      ] },
-    { id: nextLocalId(), title: "洗衣服", priority: "低", deadline: "", tags: ["生活"], color: "#e8d4b8", mode: "simple", status: "todo", startAt: "", endAt: "", editing: false, subs: [] },
-    { id: nextLocalId(), title: "取快递", priority: "低", deadline: "", tags: [], color: "#b9b08a", mode: "simple", status: "done", startAt: "15:08", endAt: "15:20", editing: false, subs: [] },
-  ];
-}
-
-function seedTimeline(taskIds) {
-  return [
-    { id: nextLocalId(), title: "早餐", range: "07:30 — 08:00", dur: "30分钟", color: "#e8d4b8", manual: false, bizDate: todayKey() },
-    { id: nextLocalId(), title: "复习计算机网络第三章", range: "08:00 — 进行中", dur: "", color: "#d4a5a5", tag: "待办 · 已同步", active: true, taskId: taskIds[0], bizDate: todayKey() },
-    { id: nextLocalId(), title: "LeetCode 每日刷题", range: "10:00 — 进行中", dur: "", color: "#a8c5b8", active: true, taskId: taskIds[1], bizDate: todayKey() },
-    { id: nextLocalId(), title: "取快递", range: "15:08 — 15:20", dur: "12分钟", color: "#b9b08a", taskId: taskIds[3], bizDate: todayKey() },
-  ];
-}
-
-const tasks = ref(seedTasks());
-const timeline = ref(seedTimeline(tasks.value.map((t) => t.id)));
+const tasks = ref([]);
+const timeline = ref([]);
 const loaded = ref(false);
 
 function snapshot() {
@@ -53,7 +26,7 @@ function snapshot() {
 }
 
 function persistFallback() {
-  if (sqlite.isTauri()) return;
+  // Tauri 内也写一份 localStorage 镜像：SQL 失败时刷新仍有兜底，不丢数据
   sqlite.writeLS(snapshot());
 }
 
@@ -62,7 +35,7 @@ function pushTimeline(e) {
   const entry = { id: nextLocalId(), bizDate: todayKey(), ...e };
   timeline.value.push(entry);
   persistFallback();
-  if (sqlite.isTauri()) sqlite.insertEntry(entry).then((id) => { if (id) entry.id = id; });
+  if (sqlite.isTauri()) sqlite.insertEntry(entry).then((id) => { if (id) entry.id = id; }).catch(() => {});
   return entry;
 }
 
@@ -117,36 +90,24 @@ export function useWorkbench() {
     // 浏览器 dev：localStorage 有就恢复
     if (!sqlite.isTauri()) {
       const cached = sqlite.readLS();
-      if (cached?.tasks?.length) {
-        tasks.value = cached.tasks;
+      if (cached) {
+        tasks.value = cached.tasks || [];
         timeline.value = cached.timeline || [];
       }
       return;
     }
-    // Tauri：读 SQLite
+    // Tauri：读 SQLite，失败则用 localStorage 镜像兜底
     const bizDate = todayKey();
     const data = await sqlite.loadDay(bizDate).catch(() => null);
-    if (!data) return;
-    if (!data.tasks.length) {
-      // 首跑：种子写入库
-      for (const t of tasks.value) {
-        const id = await sqlite.insertTask({ ...t, tags: JSON.stringify(t.tags) });
-        if (id) {
-          const oldId = t.id;
-          t.id = id;
-          for (const s of t.subs) {
-            const sid = await sqlite.insertSub(id, { ...s, done: !!s.done });
-            if (sid) s.id = sid;
-          }
-          for (const e of timeline.value.filter((x) => x.taskId === oldId)) e.taskId = id;
-        }
-      }
-      for (const e of timeline.value) {
-        const id = await sqlite.insertEntry(e);
-        if (id) e.id = id;
+    if (!data) {
+      const cached = sqlite.readLS();
+      if (cached) {
+        tasks.value = cached.tasks || [];
+        timeline.value = cached.timeline || [];
       }
       return;
     }
+    // 库里是空的就保持空列表：不写任何默认数据
     const subByTask = new Map();
     for (const r of data.subs) {
       const sub = sqlite.rowToSub(r);
@@ -180,7 +141,7 @@ export function useWorkbench() {
     tasks.value.unshift(t);
     persistFallback();
     if (sqlite.isTauri()) {
-      const id = await sqlite.insertTask({ ...t, tags: JSON.stringify(t.tags) });
+      const id = await sqlite.insertTask({ ...t, tags: JSON.stringify(t.tags) }).catch(() => null);
       if (id) t.id = id;
     }
   };
@@ -224,7 +185,7 @@ export function useWorkbench() {
     t.newSub = "";
     persistFallback();
     if (sqlite.isTauri()) {
-      const id = await sqlite.insertSub(t.id, s);
+      const id = await sqlite.insertSub(t.id, s).catch(() => null);
       if (id) s.id = id;
     }
   };
@@ -248,14 +209,25 @@ export function useWorkbench() {
     }
     persistTask(t);
   };
+  const toggleEdit = (t) => {
+    t.editing = !t.editing;
+    // 名字改完收笔时才落盘，并让时间轴上对应的区块同步改名
+    if (!t.editing) {
+      persistTask(t);
+      syncTaskBlock(t);
+    }
+  };
   const saveTimelineEntry = async (draft, editing) => {
     if (editing) {
       editing.title = draft.title;
       editing.range = draft.range;
+      editing.dur = draft.dur || "";
+      // 补上结束时间就不再是「进行中」
+      if (draft.end) editing.active = false;
       editing.manual = true;
       saveEntry(editing);
     } else {
-      pushTimeline({ title: draft.title, range: draft.range, dur: "", color: "#b9b08a", manual: true });
+      pushTimeline({ title: draft.title, range: draft.range, dur: draft.dur || "", color: "#b9b08a", manual: true });
     }
   };
   const delTimelineEntry = (e) => {
@@ -264,5 +236,5 @@ export function useWorkbench() {
     if (sqlite.isTauri()) sqlite.deleteEntry(e.id);
   };
 
-  return { tasks, timeline, loaded, load, createTask, startTask, endSimple, reopenSimple, toggleSub, addSub, delSub, delTask, switchMode, saveTimelineEntry, delTimelineEntry };
+  return { tasks, timeline, loaded, load, createTask, startTask, endSimple, reopenSimple, toggleSub, addSub, delSub, delTask, switchMode, toggleEdit, saveTimelineEntry, delTimelineEntry };
 }
