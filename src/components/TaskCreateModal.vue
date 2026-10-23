@@ -2,7 +2,7 @@
 import { computed, reactive } from "vue";
 import { PRESET_TAGS, PRI_COLOR } from "../constants/nav.js";
 
-const props = defineProps({ dark: Boolean, open: Boolean });
+const props = defineProps({ dark: Boolean, open: Boolean, dateLabel: String });
 const emit = defineEmits(["close", "confirm"]);
 
 const form = reactive({ title: "", priority: "中", deadline: "", tagInput: "", tags: [], mode: "sub" });
@@ -38,7 +38,10 @@ defineExpose({ reset });
 <template>
   <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(61, 74, 92, 0.25)">
     <div class="w-full max-w-md rounded-2xl border shadow-sm p-6 transition-all duration-300" :class="dark ? 'bg-[#2e3440] border-white/10' : 'bg-[#faf9f7] border-[#3d4a5c]/12'">
-      <h3 class="text-sm mb-4" style="font-family: 'Noto Serif SC', serif">新建主任务</h3>
+      <h3 class="text-sm mb-1" style="font-family: 'Noto Serif SC', serif">新建主任务</h3>
+      <p class="text-[10px] opacity-55 mb-3 pl-0.5">
+        归属日期：{{ dateLabel || "北京时间今天" }}
+      </p>
       <input v-model="form.title" placeholder="任务名称…" class="w-full rounded-2xl border text-sm px-4 py-2 mb-3 focus:outline-none transition-all duration-300"
         :class="dark ? 'bg-white/5 border-white/10 focus:border-[#d4a5a5]/50' : 'border-[#3d4a5c]/15 focus:border-[#d4a5a5]/50'" />
       <div class="flex gap-2 mb-3">

@@ -1,19 +1,21 @@
 <script setup>
 defineProps({
   dark: Boolean,
+  /* 标题按「正在看的日期」切换：今天 / 历史某天 */
+  heading: { type: String, default: "今日时间轴" },
   dateLine: String,
   wakeTime: String,
   restTime: String,
   entries: Array,
 });
-const emit = defineEmits(["collapse", "create", "edit", "delete"]);
+const emit = defineEmits(["collapse", "create", "edit", "delete", "edit-wake", "edit-rest"]);
 </script>
 
 <template>
   <aside class="w-72 md:w-80 border-l flex flex-col shrink-0" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">
     <div class="flex items-center justify-between px-5 py-4 border-b" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">
       <div>
-        <h2 class="text-sm md:text-base" style="font-family: 'Noto Serif SC', serif">今日时间轴</h2>
+        <h2 class="text-sm md:text-base" style="font-family: 'Noto Serif SC', serif">{{ heading }}</h2>
         <p class="text-[10px] opacity-60 mt-0.5">{{ dateLine }}</p>
       </div>
       <div class="flex gap-1">
@@ -37,12 +39,28 @@ const emit = defineEmits(["collapse", "create", "edit", "delete"]);
 
     <div class="flex-1 overflow-y-auto px-5 py-6">
       <div class="flex items-center gap-3 mb-6">
-        <div class="w-8 h-8 rounded-2xl bg-[#a8c5b8]/20 border border-[#a8c5b8]/30 flex items-center justify-center">
+        <div class="w-8 h-8 rounded-2xl bg-[#a8c5b8]/20 border border-[#a8c5b8]/30 flex items-center justify-center shrink-0">
           <svg class="w-4 h-4 text-[#7fa897]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke-linecap="round" />
           </svg>
         </div>
-        <div><p class="text-xs">起床</p><p class="text-[10px] opacity-60">{{ wakeTime || "尚未起床" }}</p></div>
+        <div class="min-w-0">
+          <p class="text-xs">起床</p>
+          <p class="text-[10px]" :class="wakeTime ? 'opacity-60' : 'opacity-40'">{{ wakeTime || "未记录" }}</p>
+        </div>
+        <button
+          @click="emit('edit-wake')"
+          class="ml-auto shrink-0 text-[10px] rounded-xl border px-2 py-1 transition-all duration-300 active:scale-[0.98]"
+          :class="dark ? 'border-white/12 opacity-55 hover:opacity-100' : 'border-[#3d4a5c]/15 opacity-55 hover:opacity-100'"
+        >{{ wakeTime ? "修改" : "补录" }}</button>
+      </div>
+
+      <div
+        v-if="!entries.length"
+        class="text-[11px] opacity-40 rounded-2xl border border-dashed p-4 text-center mb-5"
+        :class="dark ? 'border-white/15' : 'border-[#3d4a5c]/20'"
+      >
+        这一天还没有时间轴记录
       </div>
 
       <div v-for="e in entries" :key="e.id" class="flex items-start gap-3 mb-5 group">
@@ -73,12 +91,20 @@ const emit = defineEmits(["collapse", "create", "edit", "delete"]);
       </div>
 
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-2xl bg-[#d4a5a5]/12 border border-[#d4a5a5]/25 flex items-center justify-center">
+        <div class="w-8 h-8 rounded-2xl bg-[#d4a5a5]/12 border border-[#d4a5a5]/25 flex items-center justify-center shrink-0">
           <svg class="w-4 h-4 text-[#b88585]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <div><p class="text-xs opacity-60">休息</p><p class="text-[10px] opacity-40">{{ restTime || "尚未结束" }}</p></div>
+        <div class="min-w-0">
+          <p class="text-xs">休息</p>
+          <p class="text-[10px]" :class="restTime ? 'opacity-60' : 'opacity-40'">{{ restTime || "未记录" }}</p>
+        </div>
+        <button
+          @click="emit('edit-rest')"
+          class="ml-auto shrink-0 text-[10px] rounded-xl border px-2 py-1 transition-all duration-300 active:scale-[0.98]"
+          :class="dark ? 'border-white/12 opacity-55 hover:opacity-100' : 'border-[#3d4a5c]/15 opacity-55 hover:opacity-100'"
+        >{{ restTime ? "修改" : "补录" }}</button>
       </div>
     </div>
   </aside>

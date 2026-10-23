@@ -6,6 +6,8 @@
  *   接口保持一致，所以 stores/workbench.js 不用关心环境。
  */
 
+import { bjDateKey } from "../composables/useDay.js";
+
 const LS_KEY = "workbench.sqlite.fallback.v1";
 
 function isTauri() {
@@ -33,7 +35,8 @@ CREATE TABLE IF NOT EXISTS tasks (
   mode      TEXT NOT NULL DEFAULT 'sub',
   status    TEXT NOT NULL DEFAULT 'todo',
   start_at  TEXT NOT NULL DEFAULT '',
-  end_at    TEXT NOT NULL DEFAULT ''
+  end_at    TEXT NOT NULL DEFAULT '',
+  biz_date  TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS subtasks (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,6 +75,11 @@ CREATE TABLE IF NOT EXISTS journal_categories (
 CREATE TABLE IF NOT EXISTS journal_moods (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   name      TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS day_marks (
+  biz_date  TEXT PRIMARY KEY,
+  wake      TEXT NOT NULL DEFAULT '',
+  rest      TEXT NOT NULL DEFAULT ''
 );`;
 
 let db = null;
@@ -83,6 +91,17 @@ async function getDb() {
     // 建表幂等：即使 Rust 端 migration 没跑，这里也能把表补齐
     for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) {
       await db.execute(stmt);
+    }
+    // 老库升级：tasks 表补上 biz_date（新库建表时已带，重复执行会报错，忽略即可）
+    try {
+      await db.execute("ALTER TABLE tasks ADD COLUMN biz_date TEXT NOT NULL DEFAULT ''");
+    } catch {
+      /* 列已存在 */
+    }
+    try {
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(biz_date)");
+    } catch {
+      /* 索引已存在 */
     }
   }
   return db;
@@ -136,28 +155,53 @@ const rowToLog = (r) => ({
   createdAt: r.created_at || "",
 });
 
-export function todayKey(d = new Date()) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+/* 业务日期一律按北京时间（UTC+8）取，机器时区不影响「今天」是哪一天 */
+export const todayKey = bjDateKey;
 
 export const sqlite = {
   isTauri,
 
-  async loadDay(bizDate) {
+  /*
+   * 一次读全量任务 + 子任务 + 时间轴：总览月历要按天归集所有历史/未来任务，
+   * 单人工作台的数据量（百级）直接全量读比按月分页省事，切换年月不再等 IO。
+   */
+  async loadAll() {
     const database = await getDb();
-    if (!database) return null; // 调用方用种子数据 + localStorage
+    if (!database) return null; // 调用方用 localStorage
     const tasks = await database.select("SELECT * FROM tasks ORDER BY id DESC");
     const subs = await database.select("SELECT * FROM subtasks ORDER BY id ASC");
-    const entries = await database.select("SELECT * FROM timeline_entries WHERE biz_date = $1 ORDER BY id ASC", [bizDate]);
-    return { tasks, subs, entries };
+    const entries = await database.select("SELECT * FROM timeline_entries ORDER BY id ASC");
+    const marks = await database.select("SELECT * FROM day_marks");
+    return { tasks, subs, entries, marks };
+  },
+
+  /* 起床/休息按日期唯一：补录就是 upsert，同一天反复改不会产生多行 */
+  async upsertMark(bizDate, wake, rest) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute(
+      "INSERT INTO day_marks (biz_date, wake, rest) VALUES ($1,$2,$3) ON CONFLICT(biz_date) DO UPDATE SET wake=$2, rest=$3",
+      [bizDate, wake || "", rest || ""],
+    );
+  },
+
+  /*
+   * 历史数据补齐归属日期：老版本没有 biz_date 的任务/时间轴，
+   * 第一次读到时就地打上今天，避免它们从月历上凭空消失。
+   */
+  async backfillDates(bizDate) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE tasks SET biz_date = $1 WHERE biz_date = '' OR biz_date IS NULL", [bizDate]);
+    await database.execute("UPDATE timeline_entries SET biz_date = $1 WHERE biz_date = '' OR biz_date IS NULL", [bizDate]);
   },
 
   async insertTask(t) {
     const database = await getDb();
     if (!database) return null;
     const r = await database.execute(
-      "INSERT INTO tasks (title, priority, deadline, tags, color, mode, status, start_at, end_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-      [t.title, t.priority, t.deadline, t.tags, t.color, t.mode, t.status, t.startAt, t.endAt],
+      "INSERT INTO tasks (title, priority, deadline, tags, color, mode, status, start_at, end_at, biz_date) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      [t.title, t.priority, t.deadline, t.tags, t.color, t.mode, t.status, t.startAt, t.endAt, t.bizDate],
     );
     return r.lastInsertId;
   },
@@ -165,8 +209,8 @@ export const sqlite = {
     const database = await getDb();
     if (!database) return;
     await database.execute(
-      "UPDATE tasks SET title=$1, priority=$2, deadline=$3, tags=$4, color=$5, mode=$6, status=$7, start_at=$8, end_at=$9 WHERE id=$10",
-      [t.title, t.priority, t.deadline, t.tags, t.color, t.mode, t.status, t.startAt, t.endAt, t.id],
+      "UPDATE tasks SET title=$1, priority=$2, deadline=$3, tags=$4, color=$5, mode=$6, status=$7, start_at=$8, end_at=$9, biz_date=$10 WHERE id=$11",
+      [t.title, t.priority, t.deadline, t.tags, t.color, t.mode, t.status, t.startAt, t.endAt, t.bizDate, t.id],
     );
   },
   async deleteTask(id) {

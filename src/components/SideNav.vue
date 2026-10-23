@@ -2,8 +2,15 @@
 import { NAV_GROUPS, ICONS } from "../constants/nav.js";
 
 defineProps({ dark: Boolean });
+const emit = defineEmits(["nav"]);
 const activeItem = defineModel("activeItem");
 const openGroups = defineModel("openGroups");
+
+/* 子菜单点击要能被父级感知：同一个菜单再点一次（比如日常待办）也要有反应 */
+function selectChild(name) {
+  activeItem.value = name;
+  emit("nav", name);
+}
 
 function iconSvg(name) {
   return `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">${ICONS[name] || ""}</svg>`;
@@ -51,7 +58,7 @@ function toggleGroup(g) {
           <a
             v-for="c in g.children"
             :key="c"
-            @click="activeItem = c"
+            @click="selectChild(c)"
             class="block rounded-xl px-3 py-1.5 text-xs cursor-pointer transition-all duration-300"
             :class="activeItem === c ? (dark ? 'bg-white/10' : 'bg-[#d4a5a5]/15') : 'opacity-65 hover:opacity-100 hover:bg-[#3d4a5c]/8'"
           >

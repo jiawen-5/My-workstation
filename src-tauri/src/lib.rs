@@ -19,10 +19,24 @@ pub fn run() {
 }
 
 fn migrations() -> Vec<tauri_plugin_sql::Migration> {
-    vec![tauri_plugin_sql::Migration {
-        version: 1,
-        description: "create workbench tables",
-        sql: include_str!("../migrations/001_init.sql"),
-        kind: tauri_plugin_sql::MigrationKind::Up,
-    }]
+    vec![
+        tauri_plugin_sql::Migration {
+            version: 1,
+            description: "create workbench tables",
+            sql: include_str!("../migrations/001_init.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 2,
+            description: "add biz_date to tasks",
+            sql: include_str!("../migrations/002_task_biz_date.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+        tauri_plugin_sql::Migration {
+            version: 3,
+            description: "create day marks table",
+            sql: include_str!("../migrations/003_day_marks.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
+    ]
 }

@@ -1,6 +1,8 @@
 <script setup>
+import { dur } from "../../composables/useDay.js";
+
 defineProps({ dark: Boolean, task: Object });
-const emit = defineEmits(["start", "toggle-sub", "add-sub", "del-sub", "del-task", "switch-mode", "toggle-edit"]);
+const emit = defineEmits(["start", "end", "reopen", "toggle-sub", "add-sub", "del-sub", "del-task", "switch-mode", "toggle-edit"]);
 </script>
 
 <template>
@@ -20,15 +22,30 @@ const emit = defineEmits(["start", "toggle-sub", "add-sub", "del-sub", "del-task
       </div>
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-[10px] rounded-xl px-2 py-1 opacity-70" :style="{ background: task.color + '22' }">{{ task.priority }}优先级</span>
-        <button
-          v-if="task.status === 'todo'" @click="emit('start', task)"
+        <button v-if="task.status === 'todo'" @click="emit('start', task)"
           class="rounded-2xl shadow-sm text-xs px-3 py-1.5 border transition-all duration-300 active:scale-[0.98]"
           :class="dark ? 'bg-[#a8c5b8]/15 border-[#a8c5b8]/25' : 'bg-[#a8c5b8]/20 border-[#a8c5b8]/30'"
         >
           开始
         </button>
-        <button v-else class="flex items-center gap-1.5 rounded-2xl text-xs px-3 py-1.5" :class="dark ? 'bg-[#ece8e1] text-[#2e3440]' : 'bg-[#3d4a5c] text-[#faf9f7]'">
-          <span class="w-1.5 h-1.5 rounded-full bg-[#a8c5b8] pulse-dot"></span>进行中 · {{ task.startAt }}
+        <button
+          v-else-if="task.status === 'doing'" @click="emit('end', task)" title="点击结束任务"
+          class="group/end flex items-center gap-1.5 rounded-2xl text-xs px-3 py-1.5 transition-all duration-300 active:scale-[0.98] hover:opacity-90"
+          :class="dark ? 'bg-[#ece8e1] text-[#2e3440]' : 'bg-[#3d4a5c] text-[#faf9f7]'"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-[#a8c5b8] pulse-dot"></span>
+          <span class="group-hover/end:hidden">进行中 · {{ task.startAt }}</span>
+          <span class="hidden group-hover/end:inline">点击结束</span>
+        </button>
+        <button
+          v-else @click="emit('reopen', task)" title="重新打开任务"
+          class="flex items-center gap-1.5 rounded-2xl text-xs px-3 py-1.5 border opacity-75 hover:opacity-100 transition-all duration-300 active:scale-[0.98]"
+          :class="dark ? 'border-white/15 hover:bg-white/5' : 'border-[#3d4a5c]/15 hover:bg-[#3d4a5c]/8'"
+        >
+          <svg class="w-3 h-3 text-[#7fa897]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path d="m5 12 5 5L20 7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          已完成 · {{ dur(task.startAt, task.endAt) }}
         </button>
       </div>
     </div>

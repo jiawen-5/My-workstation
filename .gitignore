@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Rust / Tauri 构建产物
+src-tauri/target
+src-tauri/gen
+
 # SQLite（本地库不进仓库）
 *.db
 *.db-shm

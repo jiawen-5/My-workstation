@@ -1,12 +1,14 @@
 import { reactive, watch } from "vue";
-import { nowHM } from "./useDay.js";
 import { todayKey } from "../api/database.js";
 
 /*
- * 界面偏好：深浅色、右侧时间轴是否折叠、今日起床/休息时间。
+ * 界面偏好：深浅色、右侧时间轴是否折叠。
  * 这些是轻量状态且不涉及数据完整性，放在 localStorage；
- * 任务与时间轴数据仍然走 SQLite（见 api/database.js）。
- * 起床/休息按自然日存，跨天后自动回到空白（未起床 / 未结束）。
+ * 任务、时间轴、起床/休息打卡仍然走 SQLite（见 api/database.js、stores/workbench.js）。
+ *
+ * day 只是「今天起床/休息」的本地镜像：
+ * - 老版本把打卡只存在这里，读取时用它兜底，升级后当天记录不丢；
+ * - 新版由 store 写入（同时落 SQLite），顶部栏和时间轴读的是同一份。
  */
 
 const KEY = "workbench.prefs.v1";
@@ -43,13 +45,3 @@ function persist() {
 }
 
 watch(prefs, persist, { deep: true });
-
-export function wakeNow() {
-  prefs.day = { date: todayKey(), wake: nowHM(), rest: "" };
-}
-
-export function restNow() {
-  if (!prefs.day.wake) return;
-  prefs.day.date = todayKey();
-  prefs.day.rest = nowHM();
-}
