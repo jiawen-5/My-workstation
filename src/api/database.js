@@ -80,6 +80,32 @@ CREATE TABLE IF NOT EXISTS day_marks (
   biz_date  TEXT PRIMARY KEY,
   wake      TEXT NOT NULL DEFAULT '',
   rest      TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS point_records (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind      TEXT NOT NULL DEFAULT 'task',
+  title     TEXT NOT NULL DEFAULT '',
+  note      TEXT NOT NULL DEFAULT '',
+  minutes   INTEGER NOT NULL DEFAULT 0,
+  points    INTEGER NOT NULL DEFAULT 0,
+  at        TEXT NOT NULL DEFAULT '',
+  ref_id    INTEGER NULL
+);
+CREATE TABLE IF NOT EXISTS reward_items (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind      TEXT NOT NULL DEFAULT 'task',
+  title     TEXT NOT NULL DEFAULT '',
+  points    INTEGER NOT NULL DEFAULT 0,
+  done      INTEGER NOT NULL DEFAULT 0,
+  done_at   TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS reward_prizes (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL DEFAULT '',
+  cost      INTEGER NOT NULL DEFAULT 0,
+  emoji     TEXT NOT NULL DEFAULT '',
+  note      TEXT NOT NULL DEFAULT '',
+  used      INTEGER NOT NULL DEFAULT 0
 );`;
 
 let db = null;
@@ -305,6 +331,72 @@ export const sqlite = {
     const database = await getDb();
     if (!database) return;
     await database.execute("INSERT OR IGNORE INTO journal_moods (name) VALUES ($1)", [name]);
+  },
+
+  /* ---- 积分兑换：流水 / 任务条目 / 奖品三张表 ---- */
+  async loadRewards() {
+    const database = await getDb();
+    if (!database) return null;
+    const records = await database.select("SELECT * FROM point_records ORDER BY id DESC");
+    const items = await database.select("SELECT * FROM reward_items ORDER BY id ASC");
+    const prizes = await database.select("SELECT * FROM reward_prizes ORDER BY id ASC");
+    return { records, items, prizes };
+  },
+  async insertPointRecord(r) {
+    const database = await getDb();
+    if (!database) return null;
+    const res = await database.execute(
+      "INSERT INTO point_records (kind, title, note, minutes, points, at, ref_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [r.kind, r.title || "", r.note || "", r.minutes || 0, r.points || 0, r.at || "", r.refId ?? null],
+    );
+    return res.lastInsertId;
+  },
+  async deletePointRecordsByRef(refId) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM point_records WHERE ref_id = $1", [refId]);
+  },
+  async insertRewardItem(t) {
+    const database = await getDb();
+    if (!database) return null;
+    const res = await database.execute(
+      "INSERT INTO reward_items (kind, title, points, done, done_at) VALUES ($1,$2,$3,$4,$5)",
+      [t.kind, t.title, t.points || 0, t.done ? 1 : 0, t.doneAt || ""],
+    );
+    return res.lastInsertId;
+  },
+  async updateRewardItem(t) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE reward_items SET title=$1, points=$2, done=$3, done_at=$4 WHERE id=$5", [
+      t.title, t.points || 0, t.done ? 1 : 0, t.doneAt || "", t.id,
+    ]);
+  },
+  async deleteRewardItem(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM reward_items WHERE id=$1", [id]);
+  },
+  async insertPrize(p) {
+    const database = await getDb();
+    if (!database) return null;
+    const res = await database.execute(
+      "INSERT INTO reward_prizes (name, cost, emoji, note, used) VALUES ($1,$2,$3,$4,$5)",
+      [p.name, p.cost || 0, p.emoji || "", p.note || "", p.used || 0],
+    );
+    return res.lastInsertId;
+  },
+  async updatePrize(p) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE reward_prizes SET name=$1, cost=$2, emoji=$3, note=$4, used=$5 WHERE id=$6", [
+      p.name, p.cost || 0, p.emoji || "", p.note || "", p.used || 0, p.id,
+    ]);
+  },
+  async deletePrize(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM reward_prizes WHERE id=$1", [id]);
   },
 
   rowToSub,

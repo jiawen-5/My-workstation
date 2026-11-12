@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import * as echarts from "echarts";
 import { JOURNAL_EVENTS, EVENT_COLOR } from "../constants/journal.js";
 import { useJournal } from "../stores/journal.js";
+import DateField from "../components/DateField.vue";
 
 defineProps({ dark: Boolean, title: String, dateLine: String });
 const emit = defineEmits(["open-create", "open-edit"]);
@@ -124,18 +125,20 @@ const fmtDate = (s) => s ? s.replaceAll("-", ".") : "";
           class="rounded-2xl border text-[11px] px-3 py-1.5 transition-all" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'"
           :style="fEvent === e ? { background: EVENT_COLOR[e] + '26', borderColor: EVENT_COLOR[e] + '66' } : { opacity: 0.75 }">{{ e }}</button>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
         <select v-model="fCat" class="rounded-xl border text-[11px] px-2.5 py-2 bg-transparent focus:outline-none" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">
           <option value="">全部分类</option><option v-for="c in j.categories.value" :key="c" :value="c">{{ c }}</option>
         </select>
         <select v-model="fMood" class="rounded-xl border text-[11px] px-2.5 py-2 bg-transparent focus:outline-none" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">
           <option value="">全部情绪</option><option v-for="m in j.moods.value" :key="m" :value="m">{{ m }}</option>
         </select>
-        <input v-model="fStart" type="date" class="rounded-xl border text-[11px] px-2.5 py-2 bg-transparent focus:outline-none" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'" :style="dark ? 'color-scheme: dark' : ''" />
-        <input v-model="fEnd" type="date" class="rounded-xl border text-[11px] px-2.5 py-2 bg-transparent focus:outline-none" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'" :style="dark ? 'color-scheme: dark' : ''" />
-        <button @click="clearFilter" class="rounded-xl border text-[11px] px-2.5 py-2 opacity-60 hover:opacity-100" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">清空筛选</button>
+        <button @click="clearFilter" class="col-span-2 md:col-span-1 rounded-xl border text-[11px] px-2.5 py-2 opacity-60 hover:opacity-100" :class="dark ? 'border-white/10' : 'border-[#3d4a5c]/15'">清空筛选</button>
       </div>
-      <p v-if="fStart || fEnd" class="text-[10px] opacity-50 mt-2 pl-1">时间段：{{ fmtDate(fStart) || "不限" }} — {{ fmtDate(fEnd) || "不限" }}（如 2026.9.1 - 2026.9.30）</p>
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <DateField v-model="fStart" :dark="dark" clearable placeholder="开始日期" />
+        <DateField v-model="fEnd" :dark="dark" clearable placeholder="结束日期" />
+      </div>
+      <p v-if="fStart || fEnd" class="text-[10px] opacity-50 mt-2 pl-1">时间段：{{ fmtDate(fStart) || "不限" }} — {{ fmtDate(fEnd) || "不限" }}</p>
     </div>
 
     <!-- 统计面板 -->

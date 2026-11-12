@@ -17,7 +17,7 @@ export const NAV_GROUPS = [
   { name: "生活", children: ["三餐饮食", "运动打卡", "身体数据"] },
   { name: "创意", children: ["灵感笔记", "手绘画布", "手工档案"] },
   { name: "日记", children: [] },
-  { name: "成长", children: ["成长日志"] },
+  { name: "成长", children: ["成长日志", "积分兑换"] },
   { name: "理财", children: [], future: true },
 ];
 

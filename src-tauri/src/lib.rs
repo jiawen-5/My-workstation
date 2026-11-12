@@ -38,5 +38,11 @@ fn migrations() -> Vec<tauri_plugin_sql::Migration> {
             sql: include_str!("../migrations/003_day_marks.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
+        tauri_plugin_sql::Migration {
+            version: 4,
+            description: "create rewards tables",
+            sql: include_str!("../migrations/004_rewards.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
     ]
 }

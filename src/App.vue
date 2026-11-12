@@ -9,6 +9,7 @@ import DayMarkModal from "./components/DayMarkModal.vue";
 import TodoOverviewView from "./views/TodoOverviewView.vue";
 import TodoView from "./views/TodoView.vue";
 import GrowthView from "./views/GrowthView.vue";
+import RewardsView from "./views/RewardsView.vue";
 import GrowthLogModal from "./components/GrowthLogModal.vue";
 import PlaceholderView from "./views/PlaceholderView.vue";
 import { useWorkbench } from "./stores/workbench.js";
@@ -21,7 +22,7 @@ const search = ref("");
 const dark = computed({ get: () => prefs.dark, set: (v) => (prefs.dark = v) });
 const collapsed = computed({ get: () => prefs.collapsed, set: (v) => (prefs.collapsed = v) });
 const activeItem = ref("日常待办");
-const openGroups = ref(["待办"]);
+const openGroups = ref(["待办", "成长"]);
 
 const showCreate = ref(false);
 const showTlForm = ref(false);
@@ -99,6 +100,10 @@ onMounted(() => { wb.load(); jb.load(); });
           :dark="dark" :title="activeItem" :date-line="dateLine"
           @open-create="editingGrowth = null; showGrowth = true"
           @open-edit="(l) => { editingGrowth = l; showGrowth = true; }"
+        />
+        <RewardsView
+          v-else-if="activeItem === '积分兑换'"
+          :dark="dark" :title="activeItem" :date-line="dateLine"
         />
         <PlaceholderView
           v-else-if="activeItem === '长期计划'"

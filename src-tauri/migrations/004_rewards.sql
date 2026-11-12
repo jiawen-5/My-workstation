@@ -1,0 +1,27 @@
+-- 积分兑换：流水、任务/里程碑条目、可兑换奖品
+CREATE TABLE IF NOT EXISTS point_records (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind      TEXT NOT NULL DEFAULT 'task',
+  title     TEXT NOT NULL DEFAULT '',
+  note      TEXT NOT NULL DEFAULT '',
+  minutes   INTEGER NOT NULL DEFAULT 0,
+  points    INTEGER NOT NULL DEFAULT 0,
+  at        TEXT NOT NULL DEFAULT '',
+  ref_id    INTEGER NULL
+);
+CREATE TABLE IF NOT EXISTS reward_items (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind      TEXT NOT NULL DEFAULT 'task',
+  title     TEXT NOT NULL DEFAULT '',
+  points    INTEGER NOT NULL DEFAULT 0,
+  done      INTEGER NOT NULL DEFAULT 0,
+  done_at   TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS reward_prizes (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  name      TEXT NOT NULL DEFAULT '',
+  cost      INTEGER NOT NULL DEFAULT 0,
+  emoji     TEXT NOT NULL DEFAULT '',
+  note      TEXT NOT NULL DEFAULT '',
+  used      INTEGER NOT NULL DEFAULT 0
+);
