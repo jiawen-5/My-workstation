@@ -106,6 +106,16 @@ CREATE TABLE IF NOT EXISTS reward_prizes (
   emoji     TEXT NOT NULL DEFAULT '',
   note      TEXT NOT NULL DEFAULT '',
   used      INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS note_folder (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  category   TEXT NOT NULL DEFAULT '',
+  parent_id  INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  content    TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
 );`;
 
 let db = null;
@@ -128,6 +138,25 @@ async function getDb() {
       await db.execute("CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(biz_date)");
     } catch {
       /* 索引已存在 */
+    }
+    try {
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_note_folder_parent ON note_folder(parent_id)");
+    } catch {
+      /* 索引已存在 */
+    }
+    // 数据库层再兜一道：二级节点（parent_id > 0）下面不允许再挂子节点
+    try {
+      await db.execute(
+        `CREATE TRIGGER IF NOT EXISTS trg_note_folder_two_levels
+         BEFORE INSERT ON note_folder
+         WHEN NEW.parent_id > 0
+          AND EXISTS (SELECT 1 FROM note_folder p WHERE p.id = NEW.parent_id AND p.parent_id > 0)
+         BEGIN
+           SELECT RAISE(ABORT, 'note_folder allows at most two levels');
+         END`,
+      );
+    } catch {
+      /* 触发器已存在 */
     }
   }
   return db;
@@ -179,6 +208,17 @@ const rowToLog = (r) => ({
   mood: r.mood || "",
   content: r.content || "",
   createdAt: r.created_at || "",
+});
+
+const rowToNote = (r) => ({
+  id: r.id,
+  name: r.name,
+  category: r.category || "",
+  parentId: r.parent_id || 0,
+  sortOrder: r.sort_order || 0,
+  content: r.content || "",
+  createdAt: r.created_at || "",
+  updatedAt: r.updated_at || "",
 });
 
 /* 业务日期一律按北京时间（UTC+8）取，机器时区不影响「今天」是哪一天 */
@@ -399,9 +439,51 @@ export const sqlite = {
     await database.execute("DELETE FROM reward_prizes WHERE id=$1", [id]);
   },
 
+  /*
+   * ---- 秋招文章目录：只允许两级 ----
+   * parent_id = 0 → 一级节点（「秋招」下直接子项），> 0 → 二级节点。
+   * 「二级不能再建子节点」由 stores/notes.js 把关；
+   * 删一级节点时先清掉挂在它下面的二级节点，做到级联删除。
+   */
+  async loadNoteFolders() {
+    const database = await getDb();
+    if (!database) return null;
+    return await database.select("SELECT * FROM note_folder ORDER BY sort_order ASC, id ASC");
+  },
+  async insertNoteFolder(n) {
+    const database = await getDb();
+    if (!database) return null;
+    const r = await database.execute(
+      "INSERT INTO note_folder (name, category, parent_id, sort_order, content, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [n.name, n.category || "", n.parentId || 0, n.sortOrder || 0, n.content || "", n.createdAt || "", n.updatedAt || ""],
+    );
+    return r.lastInsertId;
+  },
+  async updateNoteFolder(n) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE note_folder SET name=$1, category=$2 WHERE id=$3", [
+      n.name, n.category || "", n.id,
+    ]);
+  },
+  async deleteNoteFolder(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM note_folder WHERE parent_id=$1", [id]);
+    await database.execute("DELETE FROM note_folder WHERE id=$1", [id]);
+  },
+  async saveNoteFolderContent(id, content, updatedAt) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE note_folder SET content=$1, updated_at=$2 WHERE id=$3", [
+      content || "", updatedAt || "", id,
+    ]);
+  },
+
   rowToSub,
   rowToEntry,
   rowToLog,
+  rowToNote,
   readLS,
   writeLS,
 };

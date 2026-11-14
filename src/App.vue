@@ -10,19 +10,22 @@ import TodoOverviewView from "./views/TodoOverviewView.vue";
 import TodoView from "./views/TodoView.vue";
 import GrowthView from "./views/GrowthView.vue";
 import RewardsView from "./views/RewardsView.vue";
+import DocEditorView from "./views/DocEditorView.vue";
 import GrowthLogModal from "./components/GrowthLogModal.vue";
 import PlaceholderView from "./views/PlaceholderView.vue";
 import { useWorkbench } from "./stores/workbench.js";
 import { useJournal } from "./stores/journal.js";
+import { useNotes } from "./stores/notes.js";
 import { useDateLine, keyLabel } from "./composables/useDay.js";
 import { prefs } from "./composables/usePrefs.js";
+import { NAV_GROUPS } from "./constants/nav.js";
 
 const search = ref("");
-// 深浅色、时间轴折叠跟着 prefs 走，重开 App 保持上次的样子
+// 深浅色、时间轴折叠、当前页面、展开的菜单组跟着 prefs 走，刷新后保持上次的样子
 const dark = computed({ get: () => prefs.dark, set: (v) => (prefs.dark = v) });
 const collapsed = computed({ get: () => prefs.collapsed, set: (v) => (prefs.collapsed = v) });
-const activeItem = ref("日常待办");
-const openGroups = ref(["待办", "成长"]);
+const activeItem = computed({ get: () => prefs.page, set: (v) => (prefs.page = v) });
+const openGroups = computed({ get: () => prefs.openGroups, set: (v) => (prefs.openGroups = v) });
 
 const showCreate = ref(false);
 const showTlForm = ref(false);
@@ -30,7 +33,12 @@ const editingTl = ref(null);
 
 const wb = useWorkbench();
 const jb = useJournal();
+const notes = useNotes();
 const dateLine = useDateLine();
+
+/* 秋招文章页：侧栏里点的是 note:<id>，正文按节点 id 读写 */
+const noteId = computed(() => Number((/^note:(\d+)$/.exec(activeItem.value || "") || [])[1] || 0));
+const noteTitle = computed(() => notes.byId(noteId.value)?.name || "");
 
 /* 起床/休息由 store 统一管（按日期存库），顶部栏与右侧时间轴共用同一份 */
 const todayMark = computed(() => wb.markOf(wb.today.value));
@@ -72,7 +80,18 @@ function openDay(key) {
 const showGrowth = ref(false);
 const editingGrowth = ref(null);
 
-onMounted(() => { wb.load(); jb.load(); });
+onMounted(() => {
+  wb.load();
+  jb.load();
+  notes.load();
+  // 回到上次的页面时，把它所在的分组展开，否则侧栏看不出停在哪
+  if (/^note:\d+$/.test(prefs.page || "")) {
+    if (!prefs.openGroups.includes("秋招")) prefs.openGroups.push("秋招");
+    return;
+  }
+  const group = NAV_GROUPS.find((g) => g.children.includes(prefs.page));
+  if (group && !prefs.openGroups.includes(group.name)) prefs.openGroups.push(group.name);
+});
 </script>
 
 <template>
@@ -104,6 +123,16 @@ onMounted(() => { wb.load(); jb.load(); });
         <RewardsView
           v-else-if="activeItem === '积分兑换'"
           :dark="dark" :title="activeItem" :date-line="dateLine"
+        />
+        <DocEditorView
+          v-else-if="noteId"
+          :key="activeItem"
+          :dark="dark" :title="noteTitle" :date-line="dateLine" :note-id="noteId"
+        />
+        <PlaceholderView
+          v-else-if="activeItem === '秋招'"
+          :dark="dark" title="秋招" :date-line="dateLine"
+          note="在左侧「秋招」上右键「新增文章」；一级文章下还能再挂一层子文章（最多两级）。"
         />
         <PlaceholderView
           v-else-if="activeItem === '长期计划'"

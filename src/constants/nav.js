@@ -9,10 +9,10 @@ export const ICONS = {
   理财: '<path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 
-/* 侧边栏：待办置顶 */
+/* 侧边栏：待办置顶；秋招不再是固定六个页面，改成 note_folder 里的两级文章目录（见 stores/notes.js） */
 export const NAV_GROUPS = [
   { name: "待办", children: ["日常待办", "长期计划"] },
-  { name: "秋招", children: ["八股笔记", "算法题库", "投递记录", "项目档案", "简历库", "模拟面试"] },
+  { name: "秋招", children: [], notes: true },
   { name: "读书", children: [] },
   { name: "生活", children: ["三餐饮食", "运动打卡", "身体数据"] },
   { name: "创意", children: ["灵感笔记", "手绘画布", "手工档案"] },
@@ -20,6 +20,9 @@ export const NAV_GROUPS = [
   { name: "成长", children: ["成长日志", "积分兑换"] },
   { name: "理财", children: [], future: true },
 ];
+
+/* 新增文章时可选的分类，下拉里还能手动输入自定义分类 */
+export const NOTE_CATEGORIES = ["生活", "日记", "工作", "秋招"];
 
 export const PRI_COLOR = { 高: "#d4a5a5", 中: "#a8c5b8", 低: "#e8d4b8" };
 export const PALETTE = ["#d4a5a5", "#a8c5b8", "#e8d4b8", "#b9b08a"];

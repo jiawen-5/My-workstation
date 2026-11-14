@@ -29,6 +29,8 @@ body {
 
 .submenu { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .3s ease-in-out, opacity .3s ease-in-out; }
 .submenu.open { max-height: 320px; opacity: 1; }
+/* 秋招文章目录可能很长，展开时给它更多空间 */
+.submenu.tall.open { max-height: 70vh; }
 .chevron { transition: transform .3s ease-in-out; }
 .chevron.rotated { transform: rotate(90deg); }
 
