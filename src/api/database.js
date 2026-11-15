@@ -116,6 +116,47 @@ CREATE TABLE IF NOT EXISTS note_folder (
   content    TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS long_plans (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT NOT NULL UNIQUE,
+  title      TEXT NOT NULL DEFAULT '',
+  cycle_days INTEGER NOT NULL DEFAULT 30,
+  start_date TEXT NOT NULL DEFAULT '',
+  targets    TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS diet_logs (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  biz_date TEXT NOT NULL DEFAULT '',
+  kind     TEXT NOT NULL DEFAULT 'food',
+  name     TEXT NOT NULL DEFAULT '',
+  amount   REAL NOT NULL DEFAULT 0,
+  kcal     REAL NOT NULL DEFAULT 0,
+  note     TEXT NOT NULL DEFAULT '',
+  at       TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS reading_books (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  title      TEXT NOT NULL,
+  author     TEXT NOT NULL DEFAULT '',
+  status     TEXT NOT NULL DEFAULT 'reading',
+  progress   INTEGER NOT NULL DEFAULT 0,
+  char_count INTEGER NOT NULL DEFAULT 0,
+  text       TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS reading_logs (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id    INTEGER NULL,
+  book_title TEXT NOT NULL DEFAULT '',
+  biz_date   TEXT NOT NULL DEFAULT '',
+  minutes    INTEGER NOT NULL DEFAULT 0,
+  pages      INTEGER NOT NULL DEFAULT 0,
+  note       TEXT NOT NULL DEFAULT '',
+  at         TEXT NOT NULL DEFAULT ''
 );`;
 
 let db = null;
@@ -141,6 +182,12 @@ async function getDb() {
     }
     try {
       await db.execute("CREATE INDEX IF NOT EXISTS idx_note_folder_parent ON note_folder(parent_id)");
+    } catch {
+      /* 索引已存在 */
+    }
+    try {
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_diet_logs_date ON diet_logs(biz_date)");
+      await db.execute("CREATE INDEX IF NOT EXISTS idx_reading_logs_date ON reading_logs(biz_date)");
     } catch {
       /* 索引已存在 */
     }
@@ -219,6 +266,58 @@ const rowToNote = (r) => ({
   content: r.content || "",
   createdAt: r.created_at || "",
   updatedAt: r.updated_at || "",
+});
+
+const safeJson = (raw) => {
+  try {
+    const v = JSON.parse(raw || "{}");
+    return v && typeof v === "object" ? v : {};
+  } catch {
+    return {};
+  }
+};
+
+const rowToPlan = (r) => ({
+  kind: r.kind,
+  title: r.title || "",
+  cycleDays: r.cycle_days || 30,
+  startDate: r.start_date || "",
+  targets: safeJson(r.targets),
+  createdAt: r.created_at || "",
+  updatedAt: r.updated_at || "",
+});
+
+const rowToDiet = (r) => ({
+  id: r.id,
+  bizDate: r.biz_date || "",
+  kind: r.kind || "food",
+  name: r.name || "",
+  amount: Number(r.amount) || 0,
+  kcal: Number(r.kcal) || 0,
+  note: r.note || "",
+  at: r.at || "",
+});
+
+const rowToBook = (r) => ({
+  id: r.id,
+  title: r.title || "",
+  author: r.author || "",
+  status: r.status || "reading",
+  progress: r.progress || 0,
+  charCount: r.char_count || 0,
+  createdAt: r.created_at || "",
+  updatedAt: r.updated_at || "",
+});
+
+const rowToReading = (r) => ({
+  id: r.id,
+  bookId: r.book_id ?? null,
+  bookTitle: r.book_title || "",
+  bizDate: r.biz_date || "",
+  minutes: r.minutes || 0,
+  pages: r.pages || 0,
+  note: r.note || "",
+  at: r.at || "",
 });
 
 /* 业务日期一律按北京时间（UTC+8）取，机器时区不影响「今天」是哪一天 */
@@ -480,10 +579,109 @@ export const sqlite = {
     ]);
   },
 
+  /*
+   * ---- 长期计划：读书 / 减肥 ----
+   * 一次读全量（单个用户，百级数据），列表页不取 reading_books.text，
+   * 上传的 txt 正文等点开阅读器时再用 loadBookText 按 id 单独拿。
+   */
+  async loadLongPlan() {
+    const database = await getDb();
+    if (!database) return null;
+    const plans = await database.select("SELECT * FROM long_plans");
+    const diet = await database.select("SELECT * FROM diet_logs ORDER BY id DESC");
+    const books = await database.select(
+      "SELECT id, title, author, status, progress, char_count, created_at, updated_at FROM reading_books ORDER BY id DESC",
+    );
+    const reading = await database.select("SELECT * FROM reading_logs ORDER BY id DESC");
+    return { plans, diet, books, reading };
+  },
+  /* 计划配置一个 kind 只有一行：改周期/目标就是 upsert */
+  async upsertLongPlan(p) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute(
+      `INSERT INTO long_plans (kind, title, cycle_days, start_date, targets, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT(kind) DO UPDATE SET title=$2, cycle_days=$3, start_date=$4, targets=$5, updated_at=$7`,
+      [p.kind, p.title || "", p.cycleDays || 30, p.startDate || "", JSON.stringify(p.targets || {}), p.createdAt || "", p.updatedAt || ""],
+    );
+  },
+
+  async insertDietLog(l) {
+    const database = await getDb();
+    if (!database) return null;
+    const r = await database.execute(
+      "INSERT INTO diet_logs (biz_date, kind, name, amount, kcal, note, at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [l.bizDate, l.kind, l.name || "", l.amount || 0, l.kcal || 0, l.note || "", l.at || ""],
+    );
+    return r.lastInsertId;
+  },
+  async deleteDietLog(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM diet_logs WHERE id=$1", [id]);
+  },
+
+  async insertBook(b) {
+    const database = await getDb();
+    if (!database) return null;
+    const r = await database.execute(
+      "INSERT INTO reading_books (title, author, status, progress, char_count, text, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [b.title, b.author || "", b.status || "reading", b.progress || 0, b.charCount || 0, b.text || "", b.createdAt || "", b.updatedAt || ""],
+    );
+    return r.lastInsertId;
+  },
+  async updateBook(b) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute(
+      "UPDATE reading_books SET title=$1, author=$2, status=$3, progress=$4, char_count=$5, updated_at=$6 WHERE id=$7",
+      [b.title, b.author || "", b.status || "reading", b.progress || 0, b.charCount || 0, b.updatedAt || "", b.id],
+    );
+  },
+  /* txt 正文单独落库，避免列表查询把它一起读出来 */
+  async saveBookText(id, text, charCount, updatedAt) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("UPDATE reading_books SET text=$1, char_count=$2, updated_at=$3 WHERE id=$4", [
+      text || "", charCount || 0, updatedAt || "", id,
+    ]);
+  },
+  async loadBookText(id) {
+    const database = await getDb();
+    if (!database) return "";
+    const rows = await database.select("SELECT text FROM reading_books WHERE id=$1", [id]);
+    return rows[0]?.text || "";
+  },
+  async deleteBook(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM reading_books WHERE id=$1", [id]);
+  },
+
+  async insertReadingLog(l) {
+    const database = await getDb();
+    if (!database) return null;
+    const r = await database.execute(
+      "INSERT INTO reading_logs (book_id, book_title, biz_date, minutes, pages, note, at) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      [l.bookId ?? null, l.bookTitle || "", l.bizDate, l.minutes || 0, l.pages || 0, l.note || "", l.at || ""],
+    );
+    return r.lastInsertId;
+  },
+  async deleteReadingLog(id) {
+    const database = await getDb();
+    if (!database) return;
+    await database.execute("DELETE FROM reading_logs WHERE id=$1", [id]);
+  },
+
   rowToSub,
   rowToEntry,
   rowToLog,
   rowToNote,
+  rowToPlan,
+  rowToDiet,
+  rowToBook,
+  rowToReading,
   readLS,
   writeLS,
 };

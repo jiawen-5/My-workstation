@@ -50,5 +50,11 @@ fn migrations() -> Vec<tauri_plugin_sql::Migration> {
             sql: include_str!("../migrations/005_note_folder.sql"),
             kind: tauri_plugin_sql::MigrationKind::Up,
         },
+        tauri_plugin_sql::Migration {
+            version: 6,
+            description: "create long plan tables for reading and diet",
+            sql: include_str!("../migrations/006_long_plan.sql"),
+            kind: tauri_plugin_sql::MigrationKind::Up,
+        },
     ]
 }

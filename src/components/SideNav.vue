@@ -26,6 +26,12 @@ function selectChild(name) {
   emit("nav", name);
 }
 
+/* 长期计划的详情页是 plan:reading / plan:diet，侧栏里仍高亮「长期计划」这一项 */
+function isChildActive(name) {
+  if (activeItem.value === name) return true;
+  return name === "长期计划" && /^plan:(reading|diet)$/.test(activeItem.value || "");
+}
+
 function iconSvg(name) {
   return `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">${ICONS[name] || ""}</svg>`;
 }
@@ -236,9 +242,9 @@ onBeforeUnmount(() => {
             :key="c"
             @click="selectChild(c)"
             class="block rounded-xl px-3 py-1.5 text-xs cursor-pointer transition-all duration-300"
-            :class="activeItem === c ? (dark ? 'bg-white/10' : 'bg-[#d4a5a5]/15') : 'opacity-65 hover:opacity-100 hover:bg-[#3d4a5c]/8'"
+            :class="isChildActive(c) ? (dark ? 'bg-white/10' : 'bg-[#d4a5a5]/15') : 'opacity-65 hover:opacity-100 hover:bg-[#3d4a5c]/8'"
           >
-            {{ c }}<span v-if="c === '长期计划'" class="ml-1 text-[10px] opacity-50">二期</span>
+            {{ c }}
           </a>
         </div>
 

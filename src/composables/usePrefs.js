@@ -21,8 +21,8 @@ const PAGES = new Set(
   NAV_GROUPS.filter((g) => !g.future).flatMap((g) => (g.children.length ? g.children : [g.name])),
 );
 
-/* 秋招文章页存在数据库里，页面名形如 note:12，这里只校验格式对不对 */
-const isPage = (p) => typeof p === "string" && (PAGES.has(p) || /^note:\d+$/.test(p));
+/* 秋招文章页存在数据库里，页面名形如 note:12；长期计划详情页形如 plan:reading，这里只校验格式对不对 */
+const isPage = (p) => typeof p === "string" && (PAGES.has(p) || /^note:\d+$/.test(p) || /^plan:(reading|diet)$/.test(p));
 
 const freshDay = () => ({ date: todayKey(), wake: "", rest: "" });
 

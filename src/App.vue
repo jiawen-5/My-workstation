@@ -10,6 +10,9 @@ import TodoOverviewView from "./views/TodoOverviewView.vue";
 import TodoView from "./views/TodoView.vue";
 import GrowthView from "./views/GrowthView.vue";
 import RewardsView from "./views/RewardsView.vue";
+import LongPlanView from "./views/LongPlanView.vue";
+import ReadingDetailView from "./views/ReadingDetailView.vue";
+import DietDetailView from "./views/DietDetailView.vue";
 import DocEditorView from "./views/DocEditorView.vue";
 import GrowthLogModal from "./components/GrowthLogModal.vue";
 import PlaceholderView from "./views/PlaceholderView.vue";
@@ -39,6 +42,12 @@ const dateLine = useDateLine();
 /* 秋招文章页：侧栏里点的是 note:<id>，正文按节点 id 读写 */
 const noteId = computed(() => Number((/^note:(\d+)$/.exec(activeItem.value || "") || [])[1] || 0));
 const noteTitle = computed(() => notes.byId(noteId.value)?.name || "");
+
+/* 长期计划详情页：plan:reading / plan:diet，两个计划共用一套「卡片主页 + 详情」结构 */
+const planPage = computed(() => (/^plan:(reading|diet)$/.exec(activeItem.value || "") || [])[1] || "");
+function openPlan(kind) {
+  activeItem.value = `plan:${kind}`;
+}
 
 /* 起床/休息由 store 统一管（按日期存库），顶部栏与右侧时间轴共用同一份 */
 const todayMark = computed(() => wb.markOf(wb.today.value));
@@ -89,6 +98,10 @@ onMounted(() => {
     if (!prefs.openGroups.includes("秋招")) prefs.openGroups.push("秋招");
     return;
   }
+  if (/^plan:(reading|diet)$/.test(prefs.page || "")) {
+    if (!prefs.openGroups.includes("待办")) prefs.openGroups.push("待办");
+    return;
+  }
   const group = NAV_GROUPS.find((g) => g.children.includes(prefs.page));
   if (group && !prefs.openGroups.includes(group.name)) prefs.openGroups.push(group.name);
 });
@@ -114,6 +127,21 @@ onMounted(() => {
           @back="todoMode = 'overview'"
           @open-create="showCreate = true"
         />
+        <LongPlanView
+          v-else-if="activeItem === '长期计划'"
+          :dark="dark" :title="activeItem" :date-line="dateLine"
+          @open-plan="openPlan"
+        />
+        <ReadingDetailView
+          v-else-if="planPage === 'reading'"
+          :dark="dark" :date-line="dateLine"
+          @back="activeItem = '长期计划'"
+        />
+        <DietDetailView
+          v-else-if="planPage === 'diet'"
+          :dark="dark" :date-line="dateLine"
+          @back="activeItem = '长期计划'"
+        />
         <GrowthView
           v-else-if="activeItem === '成长日志'"
           :dark="dark" :title="activeItem" :date-line="dateLine"
@@ -133,11 +161,6 @@ onMounted(() => {
           v-else-if="activeItem === '秋招'"
           :dark="dark" title="秋招" :date-line="dateLine"
           note="在左侧「秋招」上右键「新增文章」；一级文章下还能再挂一层子文章（最多两级）。"
-        />
-        <PlaceholderView
-          v-else-if="activeItem === '长期计划'"
-          :dark="dark" title="长期计划" :date-line="dateLine"
-          note="长期计划为二期功能：支持 100 天 / 90 天 / 30 天周期计划、每日打卡与进度统计，敬请期待。"
         />
         <PlaceholderView v-else :dark="dark" :title="activeItem" :date-line="dateLine" />
       </main>
